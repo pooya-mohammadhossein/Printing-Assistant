@@ -1,56 +1,78 @@
-# Printing-Assistant
-3D Printing open source project
+# 🖨️ Printing Assistant (PA)
 
-Here is a architectural draft for Printing Assistant—a local-first, vendor-agnostic, open-source 3D printing control plane built on the design patterns of Home Assistant.
-Executive Summary & Core Guiding Principles
-Printing Assistant (PA) acts as a central orchestrator for additive manufacturing hardware, raw materials, slicer automation, and environmental safety.
- * 100% Local-First & Sovereign: Zero mandatory cloud dependencies. Operations execute on local subnets via WebSocket, MQTT, and native HTTP APIs.
- * Decoupled Control & Translation Layers: A unified state engine interfaces with any printer (Klipper, Bambu, OctoPrint/Marlin, PrusaBuddy, RepRapFirmware) via adapter drivers.
- * Event-Driven Architecture: Core operations (state changes, camera inferencing, sensor triggers) stream over a central Event Bus.
- * Privacy-Preserving Edge Compute: Computer vision (layer shifts, spaghetti detection) runs on local NPUs/GPUs using lightweight YOLO/OpenCV pipelines.
-1. High-Level System Architecture
+> **The cozy, local-first control plane for your entire 3D printing setup.**
+> *Vendor-agnostic, privacy-focused, and seamlessly integrated into your home.*
+
+Welcome to **Printing Assistant**! Inspired by the local-first, home-centric philosophy of Home Assistant, PA brings all your 3D printers, material spools, AI safety monitors, and enclosure sensors into one unified, inviting dashboard.
+
+Whether you're running a single Voron, a fleet of Bambu or Prusa machines, or a custom bed-slinger in your garage, Printing Assistant gives you complete ownership over your hardware—100% cloud-free.
+
+---
+
+## 🌟 Why Printing Assistant?
+
+* **🏡 100% Local & Sovereign** — Zero mandatory cloud accounts or external dependencies. Everything runs on your local network over WebSockets, MQTT, and native HTTP APIs.
+* **🔌 Vendor-Agnostic Engine** — Connect Klipper, Bambu Lab, OctoPrint/Marlin, PrusaBuddy, and RepRapFirmware under one single, unified interface.
+* **⚡ Event-Driven Core** — Sub-second telemetry streams, real-time G-code rendering, and instant state updates across all your devices.
+* **👁️ Local Edge Vision AI** — Spaghetti detection and layer shift monitoring run locally on low-cost NPUs/GPUs (Raspberry Pi 5 NPU, Coral TPU, CUDA) with total privacy.
+* **🛡️ Environmental Safety First** — Native integration with smart plugs, relays, and air filters to handle VOC scrubbing and hard power cutoffs automatically.
+
+---
+
+## 🏗️ Architecture Overview
+
+Printing Assistant sits at the heart of your workshop, orchestrating hardware, raw materials, slicer pipelines, and environmental controls through a decoupled driver system.
+
+```text
 +---------------------------------------------------------------------------------------------------+
 |                                  PRINTING ASSISTANT CORE ENGINE                                   |
 +---------------------------------------------------------------------------------------------------+
 |                                                                                                   |
-|  [ FRONTEND LAYERS ]                                                                             |
-|    ├── Web App (Vue/React + Tailwind)                                                             |
-|    ├── Native Kiosk Mode (Touch UI for Wall-Mounted / Raspberry Pi Displays)                       |
-|    └── Mobile Client (Progressive Web App / Flutter)                                              |
+|   [ FRONTEND LAYERS ]                                                                             |
+|   ├── Web App (Vue 3 + Tailwind CSS)                                                             |
+|   ├── Native Touch Kiosk (Optimized for Raspberry Pi & Wall Displays)                             |
+|   └── Companion App / Mobile PWA                                                                  |
 |                                                                                                   |
-|  [ API & WEBSOCKET GATEWAY ] (FastAPI / Rust Async Engine - Port 8124)                             |
-|    ├── REST API (G-code ingestion, fleet metadata, user management)                               |
-|    ├── WebSocket Broker (Sub-second telemetry streams, camera feeds, live G-code renderers)        |
-|    └── Home Assistant Integration (WebSocket API / Native MQTT Discovery)                          |
+|   [ API & WEBSOCKET GATEWAY ] (FastAPI / Rust Async Engine - Port 8124)                           |
+|   ├── REST API (G-code ingestion, fleet metadata, user management)                                |
+|   ├── WebSocket Broker (Live telemetry, camera feeds, 3D G-code visualizer)                        |
+|   └── Home Assistant Gateway (Native MQTT Discovery & WebSocket API)                              |
 |                                                                                                   |
 +---------------------------------------------------------------------------------------------------+
 |                                           EVENT BUS                                               |
 +---------------------------------------------------------------------------------------------------+
 |                                                                                                   |
-|  [ CORE MANAGERS & ENGINES ]                                                                      |
-|    ├── State Engine          ├── Material Engine (Spoolman / NFC / Weight Scale Sync)             |
-|    ├── Dispatch Engine       ├── Edge Vision AI (Local YOLOv11 / NPU Spaghetti & Layer Shift)     |
-|    └── Automation Engine     └── Safety Orchestrator (Thermal runaway, VOC/Air, Relays)          |
+|   [ CORE MANAGERS & ENGINES ]                                                                     |
+|   ├── State Engine                   ├── Material Engine (Spoolman / NFC / Scale Sync)             |
+|   ├── Dispatch Engine                ├── Edge Vision AI (Local YOLOv11 / NPU Spaghetti Monitor)   |
+|   └── Automation Engine              └── Safety Orchestrator (Thermal runaway, VOC, Relays)       |
 |                                                                                                   |
-|  [ ABSTRACTION & DRIVER LAYER (Unified Printer API) ]                                              |
-|    ├── Klipper Driver (Moonraker WS)         ├── Bambu Driver (Local MQTT & FTPS)                 |
-|    ├── OctoPrint Driver (Marlin REST/WS)     ├── Prusa Driver (PrusaBuddy API)                    |
-|    └── Custom RepRap / Duet Driver           └── Serial / Direct USB MCU Interface                |
+|   [ UNIFIED PRINTER DRIVERS ]                                                                     |
+|   ├── Klipper Driver (Moonraker WS)  ├── Bambu Driver (Local MQTT & FTPS)                          |
+|   ├── OctoPrint (Marlin REST/WS)     ├── Prusa Driver (PrusaBuddy API)                            |
+|   └── RepRap / Duet Driver           └── Direct Serial / USB MCU Interface                        |
 |                                                                                                   |
 +---------------------------------------------------------------------------------------------------+
-                                              |
-                       +----------------------+----------------------+
-                       |                                             |
-            [ HARDWARE FLEET ]                             [ ENVIRONMENT & SENSORS ]
-         (Klipper, Bambu, Prusa, etc.)                  (HEPA Filters, Smoke Detectors,
-                                                         Smart Plugs, VOC Sensors)
+|                                 +----------------------+----------------------+                   |
+|                                 |   HARDWARE FLEET     | ENVIRONMENT & SENSORS|                   |
+|                                 | (Klipper, Bambu, etc)| (HEPA, Smoke, Plugs) |                   |
+|                                 +----------------------+----------------------+                   |
 
-2. Core Subsystems Breakdown
-A. Unified Abstraction Driver Layer
-To eliminate vendor lock-in, Printing Assistant translates external protocol dialects into a single, standardized internal data schema: PrinterEntity.
- * Klipper / Moonraker Adapter: Native JSON-RPC over WebSocket for telemetry; HTTP endpoint streaming for G-code uploads.
- * Bambu Lab Adapter: Internal MQTT bridge listening on port 8883 (SSL) paired with direct local FTPS for sending .gcode.3mf directly to machines on the local LAN without Bambu Cloud.
- * PrusaBuddy / OctoPrint Adapters: REST/WS polling handlers mapping telemetry back to the central engine.
+```
+
+---
+
+## 🧩 Core Subsystems
+
+### A. Unified Abstraction Driver Layer
+
+Printing Assistant translates every printer protocol into a single standardized schema (`PrinterEntity`), freeing you from vendor lock-in:
+
+* **Klipper / Moonraker:** Native JSON-RPC over WebSockets with direct HTTP G-code upload handling.
+* **Bambu Lab:** Local MQTT bridge over port 8883 (SSL) paired with direct local FTPS for `.gcode.3mf` file transfers—no Bambu Cloud needed.
+* **PrusaBuddy & OctoPrint:** Direct polling and WebSocket handlers mapping telemetry seamlessly.
+
+```json
 // Internal Standardized Telemetry Schema (PrinterEntity)
 {
   "entity_id": "printer.voron_2_4",
@@ -76,51 +98,83 @@ To eliminate vendor lock-in, Printing Assistant translates external protocol dia
   }
 }
 
-B. Material & Inventory Engine (Spool Engine)
-Replaces manual tracking and isolated databases with a local material catalog:
- * Native Spoolman API Sync: Deep bidirectional integration with open-source Spoolman instances.
- * Automated Weight / NFC Deduct: Listens to load-cell hardware scales (HX711) or RFID/NFC tag readers mounted on spool holders to update remaining filament weight down to the gram in real time.
- * Smart Runout Safeguard: Before sending a print job, the Dispatch Engine cross-references the gcode material estimate against available spool weight. If insufficient, it either triggers a multi-spool failover or prompts for a spool swap.
-C. Local Edge Computer Vision AI
-Cloud-based AI monitoring (such as Obico Cloud) is replaced with a local-first, low-latency vision pipeline:
- * Hardware Acceleration: Runs light-weight YOLO models optimized for local NPUs (Raspberry Pi 5 NPU HAT, Coral TPU, RK3588, or local Nvidia CUDA).
- * Inference Loop: Takes frame grabs via RTSP/MJPEG streams every 3 seconds during active prints.
- * Anomaly Detection: Evaluates frames for:
-   * Spaghetti / Loss of Adhesion
-   * Layer Shifting (cross-referencing current Z-height against camera keyframes)
-   * First Layer Defects
- * Action Logic: Emits an event.vision.anomaly_detected to the Event Bus, allowing the system to immediately pause the print locally and notify the user via local push services (Gotify, NTFY, or Home Assistant).
-D. Fleet Dispatch & Print Queue Orchestrator
-Converts an isolated machine array into an automated manufacturing pool:
- * Material-Aware Scheduling: User drops a G-code/3MF file into Printing Assistant. The engine scans machine states and routes the file to the optimal printer based on nozzle size, chamber enclosure capabilities, build plate dimensions, and loaded filament type.
- * Print Farm Batch Management: Automatically distributes mass-production requests across multiple available printers simultaneously.
-E. Environmental & Safety Automation Engine
-Interactions with smart home environments work out of the box through native Home Assistant integration (via MQTT Discovery or REST/WS API):
- * Toxic Filament Air Scrubbing: When an ABS/ASA/PC print initializes, PA triggers smart relays to power on enclosure exhaust fans and active carbon/HEPA filtration systems.
- * Thermal Safety Shutdown: If thermal runaway is detected or chamber temperatures exceed safety limits, PA triggers local smart plugs (Zigbee/Tasmota/ESPHome) to cut hard A/C mains power to the machine, bypassing unresponsive MCU boards.
-3. Deployment & Technology Stack
-| Component Layer | Technology Recommendation | Rationale |
-|---|---|---|
-| OS Stack | Printing Assistant OS (PAOS) | Immutable Buildroot / Debian-based Linux image tailored for Single Board Computers (Raspberry Pi 4/5, x86 Mini PCs, Orange Pi). |
-| Core Engine / Async Broker | Python (FastAPI) or Rust (Tokio) | High concurrency for multi-printer WebSockets, event-bus performance, and fast I/O processing. |
-| Database & Caching | SQLite (WAL mode) + Embedded Key-Value | Zero-configuration local database for state logging, spool data, and print job histories. |
-| Frontend Framework | Vue.js 3 / Web Components | Fast rendering for G-code 3D preview canvases (Three.js/Open3D), mobile responsive, low footprint. |
-| Local Messaging | Embedded Mosquitto MQTT & Internal Event Bus | Seamless discovery with Home Assistant, ESPHome sensors, and third-party scripts. |
-4. Proposed Modular Data Directory Structure
+```
+
+### B. Material & Inventory Engine (Spool Engine)
+
+Keep precise track of your filament library without extra fuss:
+
+* **Spoolman Integration:** Bidirectional syncing with your local Spoolman instance out of the box.
+* **Automatic Weight & NFC Sync:** Hooks into HX711 load-cell scales or RFID/NFC spool tags to deduct filament usage down to the gram.
+* **Smart Runout Safeguards:** Cross-references print estimates against available spool weight before starting a job, offering auto-failover or swapping prompts.
+
+### C. Local Edge Computer Vision AI
+
+Keep an eye on your prints without streaming sensitive video to third-party clouds:
+
+* **Local Hardware Acceleration:** Runs lightweight YOLO models on Raspberry Pi 5 NPU HATs, Coral TPUs, RK3588 boards, or local Nvidia GPUs.
+* **Smart Anomaly Detection:** Evaluates camera frames every 3 seconds for spaghettiing, poor bed adhesion, and layer shifts.
+* **Instant Local Action:** Fires an `event.vision.anomaly_detected` trigger to pause prints immediately and send alerts via NTFY, Gotify, or Home Assistant.
+
+### D. Fleet Dispatch & Print Queue
+
+Turn your scatter of printers into an organized, stress-free pool:
+
+* **Material-Aware Routing:** Drop a file in, and PA routes it to the right machine based on nozzle diameter, bed size, chamber heating, and loaded filament.
+* **Batch Production:** Easily fan out mass-production jobs across available printers in your workshop.
+
+### E. Environmental & Safety Automation
+
+Built to talk directly with Home Assistant, Zigbee, Tasmota, and ESPHome:
+
+* **Air Quality Scrubbing:** Automatically fires up enclosure exhaust fans and HEPA/carbon filters when ABS, ASA, or PC prints start.
+* **Hard Emergency Cutoff:** If thermal runaway or unsafe chamber temperatures are detected, PA turns off smart plugs directly to cut AC power to the machine safely.
+
+---
+
+## 🛠️ Technology Stack
+
+| Layer | Technology | Why We Chose It |
+| --- | --- | --- |
+| **OS Stack** | **Printing Assistant OS** | Immutable Buildroot / Debian Linux image lightweight enough for Raspberry Pi & Mini PCs. |
+| **Core Engine** | **Python (FastAPI) / Rust (Tokio)** | High concurrency for multi-printer WebSockets, fast event-bus response, and low footprint. |
+| **Database** | **SQLite (WAL mode)** | Zero-config, rock-solid local storage for state logs, spool data, and print histories. |
+| **Frontend** | **Vue 3 / Tailwind CSS** | Lightning-fast rendering with Three.js G-code previews and touch-friendly UI. |
+| **Messaging** | **Embedded Mosquitto MQTT** | Effortless auto-discovery with Home Assistant and local smart devices. |
+
+---
+
+## 📁 Modular Directory Structure
+
+```text
 /etc/printing-assistant/
-├── config.yaml               # Master System & Network Config
+├── config.yaml          # Master System & Network Configuration
 ├── storage/
-│   ├── pa_database.db        # SQLite Local State DB
-│   └── models/               # Local Edge AI Weights (.onnx / .rknn)
-├── drivers/                  # Pluggable Printer Adapters
+│   ├── pa_database.db   # SQLite Local State Engine
+│   └── models/          # Edge AI Weights (.onnx / .rknn)
+├── drivers/             # Pluggable Printer Adapters
 │   ├── klipper.py
 │   ├── bambu.py
 │   └── prusa.py
-└── blueprints/               # Community Automation Blueprints
+└── blueprints/          # Community Safety & Automation Blueprints
     ├── abs_ventilation.yaml
     └── fire_safety_cutoff.yaml
 
-Next Steps for Implementation
- * Phase 1 (MVP Core): Build the Python/Rust event bus alongside the Moonraker (Klipper) and Bambu MQTT driver adapters.
- * Phase 2 (Material & Fleet Dispatch): Implement Spoolman API syncing and multi-machine job queues.
- * Phase 3 (Vision AI & Safety Integrations): Package ONNX-based local vision inferencing for low-cost NPU hardware and expose native MQTT discovery nodes for Home Assistant.
+```
+
+---
+
+## 🗺️ Roadmap & Next Steps
+
+* **Phase 1: Core Engine & Adapters (MVP)**
+Building the core Python/Rust event bus alongside initial Moonraker (Klipper) and Bambu MQTT driver adapters.
+* **Phase 2: Spool Engine & Fleet Dispatch**
+Integrating Spoolman API sync, load-cell support, and multi-printer queue routing.
+* **Phase 3: Vision AI & Home Assistant Ecosystem**
+Packaging ONNX local vision inferencing for SBC NPUs and publishing native MQTT discovery blueprints for Home Assistant.
+
+---
+
+**Built with ❤️ for the open-source 3D printing community.**
+
+*Crafted by Pooya Mohammadhossein & contributors.*
